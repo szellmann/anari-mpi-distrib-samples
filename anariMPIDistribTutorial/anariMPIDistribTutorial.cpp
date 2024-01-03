@@ -105,8 +105,10 @@ int main(int argc, char **argv)
     // put the mesh into a surface
     auto surface = anari::newObject<anari::Surface>(device);
     anari::setParameter(device, surface, "geometry", mesh);
-    anari::setAndReleaseParameter(device, surface, "material",
-        anari::newObject<anari::Material>(device, "matte"));
+    auto material = anari::newObject<anari::Material>(device, "matte");
+    anari::setParameter(device, material, "color", float3(0.8f, 0.8f, 0.8f));
+    anari::commitParameters(device, material);
+    anari::setParameter(device, surface, "material", material);
     anari::commitParameters(device, surface);
 
     // put the surface into a group (collection of surfaces)
