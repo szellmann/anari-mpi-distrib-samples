@@ -75,105 +75,108 @@ int main(int argc, char **argv)
   // load "barney", an MPI distributed anari device
   auto library = anari::loadLibrary("barney", statusFunc);
 
-  // use scoped lifetimes of wrappers to release everything before unloadLibrary()
-  {
-    auto device = anari::newDevice(library, "default");
-    anari::commitParameters(device, device);
+  auto device = anari::newDevice(library, "default");
+  anari::commitParameters(device, device);
 
-    // create and setup camera
-    auto camera = anari::newObject<anari::Camera>(device, "perspective");
-    anari::setParameter(device, camera, "aspect", imgSize.x / (float)imgSize.y);
-    anari::setParameter(device, camera, "position", cam_pos);
-    anari::setParameter(device, camera, "direction", cam_view);
-    anari::setParameter(device, camera, "up", cam_up);
-    anari::commitParameters(device, camera); // commit each object to indicate modifications are done
+  // create and setup camera
+  auto camera = anari::newObject<anari::Camera>(device, "perspective");
+  anari::setParameter(device, camera, "aspect", imgSize.x / (float)imgSize.y);
+  anari::setParameter(device, camera, "position", cam_pos);
+  anari::setParameter(device, camera, "direction", cam_view);
+  anari::setParameter(device, camera, "up", cam_up);
+  anari::commitParameters(device, camera); // commit each object to indicate modifications are done
 
-    // create and setup model and mesh
-    auto mesh = anari::newObject<anari::Geometry>(device, "triangle");
-    anari::Array1D data;
-    data = anari::newArray1D(device, vertex, 4);
-    anari::setAndReleaseParameter(device, mesh, "vertex.position", data);
+  // create and setup model and mesh
+  auto mesh = anari::newObject<anari::Geometry>(device, "triangle");
+  anari::Array1D data;
+  data = anari::newArray1D(device, vertex, 4);
+  anari::setAndReleaseParameter(device, mesh, "vertex.position", data);
 
-    data = anari::newArray1D(device, color, 4);
-    anari::setAndReleaseParameter(device, mesh, "vertex.color", data);
+  data = anari::newArray1D(device, color, 4);
+  anari::setAndReleaseParameter(device, mesh, "vertex.color", data);
 
-    data = anari::newArray1D(device, index, 2);
-    anari::setAndReleaseParameter(device, mesh, "primitive.index", data);
+  data = anari::newArray1D(device, index, 2);
+  anari::setAndReleaseParameter(device, mesh, "primitive.index", data);
 
-    anari::commitParameters(device, mesh);
+  anari::commitParameters(device, mesh);
 
-    // put the mesh into a surface
-    auto surface = anari::newObject<anari::Surface>(device);
-    anari::setParameter(device, surface, "geometry", mesh);
-    auto material = anari::newObject<anari::Material>(device, "matte");
-    anari::setParameter(device, material, "color", float3(0.8f, 0.8f, 0.8f));
-    anari::commitParameters(device, material);
-    anari::setParameter(device, surface, "material", material);
-    anari::commitParameters(device, surface);
+  // put the mesh into a surface
+  auto surface = anari::newObject<anari::Surface>(device);
+  anari::setParameter(device, surface, "geometry", mesh);
+  auto material = anari::newObject<anari::Material>(device, "matte");
+  anari::setParameter(device, material, "color", float3(0.8f, 0.8f, 0.8f));
+  anari::commitParameters(device, material);
+  anari::setParameter(device, surface, "material", material);
+  anari::commitParameters(device, surface);
 
-    // put the surface into a group (collection of surfaces)
-    auto group = anari::newObject<anari::Group>(device);
-    anari::setParameterArray1D(device, group, "surface", &surface, 1);
-    anari::commitParameters(device, group);
+  // put the surface into a group (collection of surfaces)
+  auto group = anari::newObject<anari::Group>(device);
+  anari::setParameterArray1D(device, group, "surface", &surface, 1);
+  anari::commitParameters(device, group);
 
-    // put the group into an instance (give the group a world transform)
-    auto instance = anari::newObject<anari::Instance>(device, "transform");
-    anari::setParameterArray1D(device, instance, "group", &group, 1);
-    anari::commitParameters(device, instance);
+  // put the group into an instance (give the group a world transform)
+  auto instance = anari::newObject<anari::Instance>(device, "transform");
+  anari::setParameterArray1D(device, instance, "group", &group, 1);
+  anari::commitParameters(device, instance);
 
-    auto world = anari::newObject<anari::World>(device);
-    //anari::setParameterArray1D(device, world, "instance", &instance, 1); // TODO: doesn't work?!
-    anari::setParameterArray1D(device, world, "surface", &surface, 1);
+  auto world = anari::newObject<anari::World>(device);
+  //anari::setParameterArray1D(device, world, "instance", &instance, 1); // TODO: doesn't work?!
+  anari::setParameterArray1D(device, world, "surface", &surface, 1);
 
-    // Specify the region of the world this rank owns
-    //float3 regionBounds[] = {
-    //    float3(mpiRank, 0.f, 2.5f), float3(1.f * (mpiRank + 1.f), 1.f, 3.5f)};
-    //anari::setParameter(device, world, "region", regionBounds);
+  // Specify the region of the world this rank owns
+  //float3 regionBounds[] = {
+  //    float3(mpiRank, 0.f, 2.5f), float3(1.f * (mpiRank + 1.f), 1.f, 3.5f)};
+  //anari::setParameter(device, world, "region", regionBounds);
 
-    anari::commitParameters(device, world);
+  anari::commitParameters(device, world);
 
-    // create the default renderer
-    auto renderer = anari::newObject<anari::Renderer>(device, "default");
-    anari::commitParameters(device, renderer);
+  // create the default renderer
+  auto renderer = anari::newObject<anari::Renderer>(device, "default");
+  anari::commitParameters(device, renderer);
 
-    // create and setup frame
-    auto frame = anari::newObject<anari::Frame>(device);
-    anari::setParameter(device, frame, "size", imgSize);
-    anari::setParameter(device, frame, "channel.color", ANARI_UFIXED8_RGBA_SRGB);
-    anari::setParameter(device, frame, "world", world);
-    anari::setParameter(device, frame, "renderer", renderer);
-    anari::setParameter(device, frame, "camera", camera);
-    anari::commitParameters(device, frame);
+  // create and setup frame
+  auto frame = anari::newObject<anari::Frame>(device);
+  anari::setParameter(device, frame, "size", imgSize);
+  anari::setParameter(device, frame, "channel.color", ANARI_UFIXED8_RGBA_SRGB);
+  anari::setParameter(device, frame, "world", world);
+  anari::setParameter(device, frame, "renderer", renderer);
+  anari::setParameter(device, frame, "camera", camera);
+  anari::commitParameters(device, frame);
 
-    // render one frame
+  // render one frame
+  anari::render(device, frame);
+
+  // on rank 0, access framebuffer and write its content as PNG file
+  if (mpiRank == 0) {
+    auto fb = anari::map<uint32_t>(device, frame, "channel.color");
+    stbi_flip_vertically_on_write(1);
+    stbi_write_png(
+        "firstFrameCpp.png", imgSize.x, imgSize.y, 4, fb.data, 4 * fb.width);
+    anari::unmap(device, frame, "channel.color");
+  }
+
+  // render 10 more frames, which are accumulated to result in a better
+  // converged image
+  for (int frames = 0; frames < 10; frames++)
     anari::render(device, frame);
 
-    // on rank 0, access framebuffer and write its content as PNG file
-    if (mpiRank == 0) {
-      auto fb = anari::map<uint32_t>(device, frame, "channel.color");
-      stbi_flip_vertically_on_write(1);
-      stbi_write_png(
-          "firstFrameCpp.png", imgSize.x, imgSize.y, 4, fb.data, 4 * fb.width);
-      anari::unmap(device, frame, "channel.color");
-    }
-
-    // render 10 more frames, which are accumulated to result in a better
-    // converged image
-    for (int frames = 0; frames < 10; frames++)
-      anari::render(device, frame);
-
-    if (mpiRank == 0) {
-      auto fb = anari::map<uint32_t>(device, frame, "channel.color");
-      stbi_write_png(
-          "accumulatedFrameCpp.png", imgSize.x, imgSize.y, 4, fb.data, 4 * fb.width);
-      anari::unmap(device, frame, "channel.color");
-    }
-
-    anari::release(device, renderer);
-    anari::release(device, world);
-    anari::release(device, frame);
-    anari::release(device, device);
+  if (mpiRank == 0) {
+    auto fb = anari::map<uint32_t>(device, frame, "channel.color");
+    stbi_write_png(
+        "accumulatedFrameCpp.png", imgSize.x, imgSize.y, 4, fb.data, 4 * fb.width);
+    anari::unmap(device, frame, "channel.color");
   }
+
+  anari::release(device, mesh);
+  anari::release(device, material);
+  anari::release(device, surface);
+  anari::release(device, group);
+  anari::release(device, instance);
+  anari::release(device, camera);
+  anari::release(device, renderer);
+  anari::release(device, world);
+  anari::release(device, frame);
+  anari::release(device, device);
 
   anari::unloadLibrary(library);
 
