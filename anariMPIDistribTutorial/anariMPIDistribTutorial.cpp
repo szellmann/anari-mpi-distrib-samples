@@ -104,7 +104,8 @@ int main(int argc, char **argv)
   auto surface = anari::newObject<anari::Surface>(device);
   anari::setParameter(device, surface, "geometry", mesh);
   auto material = anari::newObject<anari::Material>(device, "matte");
-  anari::setParameter(device, material, "color", float3(0.8f, 0.8f, 0.8f));
+  anari::setParameter(device, material, "color",
+      float3(0.0f, 0.0f, (mpiRank + 1.f) / mpiWorldSize));
   anari::commitParameters(device, material);
   anari::setParameter(device, surface, "material", material);
   anari::commitParameters(device, surface);
