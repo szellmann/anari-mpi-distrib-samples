@@ -118,7 +118,7 @@ int3 computeGrid(int num)
 anari::Surface makeLocalSpheres(
     anari::Device device, const int mpiRank, const int mpiWorldSize, box3 &bounds)
 {
-  const float sphereRadius = 0.1;
+  const float sphereRadius = 0.1f;
   std::vector<float> sphereRadii(50, sphereRadius);
   std::vector<float3> spheres(50);
 

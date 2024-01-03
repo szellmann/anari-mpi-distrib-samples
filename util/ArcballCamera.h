@@ -66,6 +66,10 @@ namespace util {
       } else if (!middleDown && g_middleDown) {
         manip.handleMouseUp(x, y, ArcballManip::Middle, mod);
       }
+
+      g_leftDown = leftDown;
+      g_rightDown = rightDown;
+      g_middleDown = middleDown;
     }
 
     bool hasCameraChanged() const

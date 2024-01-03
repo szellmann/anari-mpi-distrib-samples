@@ -251,7 +251,6 @@ void GLFWDistribANARIWindow::motion(const int2 &position)
     windowState.eyePos = arcballCamera->getEye();
     windowState.lookDir = arcballCamera->getCenter() - arcballCamera->getEye();
     windowState.upDir = arcballCamera->getUp();
-    std::cout << windowState.eyePos.x << ',' << windowState.eyePos.y << ',' << windowState.eyePos.z << '\n';
   }
 }
 
