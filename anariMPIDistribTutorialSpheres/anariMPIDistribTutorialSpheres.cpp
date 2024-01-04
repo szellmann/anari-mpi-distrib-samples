@@ -91,6 +91,18 @@ int main(int argc, char **argv)
         [&]() { ImGui::SliderInt("pixelSamples", &spp, 1, 64); });
   }
 
+  glfwANARIWindow->registerDisplayCallback(
+        [&](GLFWDistribANARIWindow *win) {
+          // Send the UI changes out to the other ranks so we can synchronize
+          // how many samples per-pixel we're taking
+          MPI_Bcast(&spp, 1, MPI_INT, 0, MPI_COMM_WORLD);
+          if (spp != currentSpp) {
+            currentSpp = spp;
+            anari::setParameter(device, renderer, "pixelSamples", spp);
+            win->addObjectToCommit(renderer);
+          }
+        });
+
   // start the GLFW main loop, which will continuously render
   glfwANARIWindow->mainLoop();
 
