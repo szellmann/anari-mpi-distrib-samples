@@ -1,5 +1,12 @@
 // https://github.com/ospray/ospray/blob/master/modules/mpi/tutorials/ospMPIDistribTutorialSpheres.cpp
 
+/* This larger example shows how to use the MPIDistributedDevice to write an
+ * interactive rendering application, which shows a UI on rank 0 and uses
+ * all ranks in the MPI world for data loading and rendering. Each rank
+ * generates a local sub-piece of spheres data, e.g., as if rendering some
+ * large distributed dataset.
+ */
+
 #include <imgui.h>
 #include <mpi.h>
 #include <array>
@@ -58,9 +65,18 @@ int main(int argc, char **argv)
   //anari::setParameterArray1D(device, world, "instance", &spheres, 1); // TODO: doesn't work?!
   anari::setParameterArray1D(device, world, "surface", &spheres, 1);
 
-  anari::commitParameters(device, world);
-
+  // create ANARI renderer
   auto renderer = anari::newObject<anari::Renderer>(device, "default");
+
+  // create and setup a directional light
+  std::array<anari::Light, 1> lights = {
+      anari::newObject<anari::Light>(device, "directional")};
+
+  anari::setParameter(device, lights[0], "direction", float3(-1.f, -1.f, 0.5f));
+  anari::commitParameters(device, lights[0]);
+  anari::setParameterArray1D(device, world, "light", &lights, 1);
+
+  anari::commitParameters(device, world);
 
   // create a GLFW OSPRay window: this object will create and manage the
   // OSPRay frame buffer and camera directly
