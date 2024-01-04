@@ -325,6 +325,7 @@ void GLFWDistribANARIWindow::display()
   glEnd();
 
   ImGui::Render();
+  ImGui_ImplGlfwGL3_Render();
 
   // swap buffers
   glfwSwapBuffers(glfwWindow);
