@@ -8,6 +8,7 @@
 // ours
 #include "ArcballManip.h"
 #include "PanManip.h"
+#include "ZoomManip.h"
 
 namespace util {
   struct ArcballCamera : Camera
@@ -16,17 +17,20 @@ namespace util {
 
     ArcballCamera(Camera::box3 worldBounds, int2 winSize)
       : rotateManip((Camera &)*this),
-        panManip((Camera &)*this)
+        panManip((Camera &)*this),
+        zoomManip((Camera &)*this)
     {
       viewAll(worldBounds);
       rotateManip.resize(winSize.x, winSize.y);
       panManip.resize(winSize.x, winSize.y);
+      zoomManip.resize(winSize.x, winSize.y);
     }
 
     void updateWindowSize(int2 winSize)
     {
       rotateManip.resize(winSize.x, winSize.y);
       panManip.resize(winSize.x, winSize.y);
+      zoomManip.resize(winSize.x, winSize.y);
     }
 
     void handleMouseEvent(int x, int y, GLFWwindow *glfwWindow)
@@ -55,11 +59,11 @@ namespace util {
 
       // right
       if (rightDown && !g_rightDown) {
-        rotateManip.handleMouseDown(x, y, Manip::MouseButton::Right, mod);
+        zoomManip.handleMouseDown(x, y, Manip::MouseButton::Right, mod);
       } else if (rightDown && g_rightDown) {
-        rotateManip.handleMouseMove(x, y, Manip::MouseButton::Right, mod);
+        zoomManip.handleMouseMove(x, y, Manip::MouseButton::Right, mod);
       } else if (!rightDown && g_rightDown) {
-        rotateManip.handleMouseUp(x, y, Manip::MouseButton::Right, mod);
+        zoomManip.handleMouseUp(x, y, Manip::MouseButton::Right, mod);
       }
 
       // middle
@@ -84,6 +88,7 @@ namespace util {
    private:
     ArcballManip rotateManip;
     PanManip panManip;
+    ZoomManip zoomManip;
     bool cameraChanged = false;
   };
 } // namespace util

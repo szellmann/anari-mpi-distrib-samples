@@ -19,14 +19,12 @@ namespace util {
     }
   }
 
-  void PanManip::handleMouseUp(
-      int x, int y, MouseButton button, ModifierKey mod)
+  void PanManip::handleMouseUp(int x, int y, MouseButton button, ModifierKey mod)
   {
     isDragging = false;
   }
 
-  void PanManip::handleMouseMove(
-      int x, int y, MouseButton button, ModifierKey mod)
+  void PanManip::handleMouseMove(int x, int y, MouseButton button, ModifierKey mod)
   {
     if (isDragging) {
       float w(size.x);
