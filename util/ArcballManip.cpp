@@ -38,8 +38,7 @@ namespace util {
     size = int2(width, height);
   }
 
-  void ArcballManip::handleMouseDown(
-      int x, int y, ArcballManip::MouseButton button, ArcballManip::ModifierKey mod)
+  void ArcballManip::handleMouseDown(int x, int y, MouseButton button, ModifierKey mod)
   {
     if (!isDragging) {
       downPos = ball.project(x, y, size);
@@ -48,32 +47,28 @@ namespace util {
     }
   }
 
-  void ArcballManip::handleMouseUp(
-      int x, int y, ArcballManip::MouseButton button, ArcballManip::ModifierKey mod)
+  void ArcballManip::handleMouseUp(int x, int y, MouseButton button, ModifierKey mod)
   {
     isDragging = false;
   }
 
-  void ArcballManip::handleMouseMove(
-      int x, int y, ArcballManip::MouseButton button, ArcballManip::ModifierKey mod)
+  void ArcballManip::handleMouseMove(int x, int y, MouseButton button, ModifierKey mod)
   {
     if (isDragging) {
-      if (button == Left) {
-        float3 currPos = ball.project(x, y, size);
-        float3 from = normalize(downPos);
-        float3 to = normalize(currPos);
-        rotation = qmul(Quat(cross(from, to), dot(from, to)), downRotation);
+      float3 currPos = ball.project(x, y, size);
+      float3 from = normalize(downPos);
+      float3 to = normalize(currPos);
+      rotation = qmul(Quat(cross(from, to), dot(from, to)), downRotation);
 
-        mat3 rotationMat = qmat(qconj(rotation));
+      mat3 rotationMat = qmat(qconj(rotation));
 
-        float3 eye(0, 0, camera.getDistance());
-        eye = mul(rotationMat, eye);
-        eye += camera.getCenter();
+      float3 eye(0, 0, camera.getDistance());
+      eye = mul(rotationMat, eye);
+      eye += camera.getCenter();
 
-        float3 up = rotationMat[1];
+      float3 up = rotationMat[1];
 
-        camera.lookAt(eye, camera.getCenter(), up);
-      }
+      camera.lookAt(eye, camera.getCenter(), up);
     }
   }
 

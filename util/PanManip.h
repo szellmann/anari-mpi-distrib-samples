@@ -9,23 +9,9 @@
 
 namespace util {
 
-  struct Arcball
+  struct PanManip : public Manip
   {
-    using int2 = anari::math::int2;
-    using float3 = anari::math::float3;
-  
-    float3 project(int x, int y, int2 winSize);
-  
-    float radius{1.f};
-  };
-  
-  struct ArcballManip : public Manip
-  {
-    using int2 = anari::math::int2;
-    using float3 = anari::math::float3;
-    using Quat = anari::math::float4;
-
-    ArcballManip(Camera &cam);
+    PanManip(Camera &cam);
     void resize(int width, int height);
     void handleMouseDown(
         int x, int y, MouseButton button, ModifierKey mod = ModifierKey::None);
@@ -37,13 +23,10 @@ namespace util {
    private:
     Camera &camera;
 
-    int2 size{10, 10};
-    bool isDragging{false};
+    anari::math::int2 size{10, 10};
+    bool isDragging;
 
-    Arcball ball;
-    float3 downPos{0.f, 0.f, 0.f};
-    Quat rotation{0.f, 0.f, 0.f, 1.f};
-    Quat downRotation{0.f, 0.f, 0.f, 1.f};
+    anari::math::int2 lastPos;
   };
 
 } // namespace util

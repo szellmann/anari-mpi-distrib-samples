@@ -16,6 +16,7 @@ add_library(util STATIC
   external/imgui/imgui_tables.cpp
   external/imgui/imgui_widgets.cpp
   util/ArcballManip.cpp
+  util/PanManip.cpp
   util/GLFWDistribANARIWindow.cpp
   util/imgui_impl_glfw_gl3.cpp
 )
