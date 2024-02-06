@@ -26,3 +26,4 @@ target_include_directories(util SYSTEM PRIVATE external/imgui)
 
 add_subdirectory(anariMPIDistribTutorial)
 add_subdirectory(anariMPIDistribTutorialSpheres)
+add_subdirectory(anariMPIDistribTutorialVTK)
