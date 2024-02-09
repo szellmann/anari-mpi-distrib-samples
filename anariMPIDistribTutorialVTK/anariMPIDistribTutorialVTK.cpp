@@ -27,12 +27,14 @@
 
 using namespace anari::math;
 
+#define LOG std::cerr
+
 enum Command
 {
-  Cmd_Start,
   Cmd_Resize,
   Cmd_Render,
   Cmd_Camera,
+  Cmd_Wait,
 };
 
 struct RenderCommand : vtkCommand
@@ -47,19 +49,22 @@ struct RenderCommand : vtkCommand
                unsigned long eventId,
                void * callData)
   {
+    LOG << vtkCommand::GetStringFromEventId(eventId) << '\n';
     switch (eventId) {
-      case vtkCommand::StartEvent: {
-        Command cmd = Cmd_Start;
-        MPI_Bcast(&cmd, sizeof(cmd), MPI_BYTE, 0, MPI_COMM_WORLD);
-        renderWindow->Render();
-        break;
-      }
-
-      case vtkCommand::WindowResizeEvent: {
+      case vtkCommand::ConfigureEvent: {
         Command cmd = Cmd_Resize;
         int2 size = { renderWindow->GetSize()[0], renderWindow->GetSize()[1] };
         MPI_Bcast(&cmd, sizeof(cmd), MPI_BYTE, 0, MPI_COMM_WORLD);
         MPI_Bcast(&size, 2, MPI_INT, 0, MPI_COMM_WORLD);
+        break;
+      }
+
+      // at least the vtkXRenderWindowInteractor renders once on Expose w/o
+      // creating an event; we process this event here and send a single
+      // Cmd_Render to the workers. This is obviously a bit arcane.
+      case vtkCommand::ExposeEvent: {
+        Command cmd = Cmd_Render;
+        MPI_Bcast(&cmd, sizeof(cmd), MPI_BYTE, 0, MPI_COMM_WORLD);
         break;
       }
 
@@ -69,8 +74,26 @@ struct RenderCommand : vtkCommand
         renderWindow->Render();
         break;
       }
+
+      case vtkCommand::ModifiedEvent:
+      case vtkCommand::CreateCameraEvent:
+      case vtkCommand::ResetCameraEvent:
+      case vtkCommand::ActiveCameraEvent: {
+        //Command cmd = Cmd_Render;
+        //MPI_Bcast(&cmd, sizeof(cmd), MPI_BYTE, 0, MPI_COMM_WORLD);
+        //renderWindow->Render();
+        //cmd = Cmd_Wait;
+        //MPI_Bcast(&cmd, sizeof(cmd), MPI_BYTE, 0, MPI_COMM_WORLD);
+        break;
+      }
+
+      // default: {
+      //   std::cout << "EVENT ID: " << vtkCommand::GetStringFromEventId(eventId) << '\n';
+      //   break;
+      // }
     }
-    RenderCommand::Execute(caller, eventId, callData);
+
+    //RenderCommand::Execute(caller, eventId, callData);
   }
 
   vtkRenderWindow *renderWindow;
@@ -92,7 +115,6 @@ struct WorkerLoop
           break;
         }
 
-        case Cmd_Start:
         case Cmd_Render:
           renderWindow->Render();
           break;
@@ -204,8 +226,11 @@ int main(int argc, char *argv[]) {
 
     vtkNew<RenderCommand> cmd_Render;
     cmd_Render->renderWindow = renderWindow;
-    iren->AddObserver(vtkCommand::StartEvent, cmd_Render);
+    iren->AddObserver(vtkCommand::ExposeEvent, cmd_Render);
     iren->AddObserver(vtkCommand::RenderEvent, cmd_Render);
+    iren->AddObserver(vtkCommand::ConfigureEvent, cmd_Render);
+    //iren->AddObserver(vtkCommand::ActiveCameraEvent, cmd_Render);
+    //iren->AddObserver(vtkCommand::ResetCameraEvent, cmd_Render);
 
     // TODO: progressive rendering
     //iren->CreateRepeatingTimer(1);
@@ -224,7 +249,7 @@ int main(int argc, char *argv[]) {
     workerLoop.Run();
   }
 
-    std::cout << mpiRank << ": I am done......\n";
+    std::cerr << mpiRank << ": I am done......\n";
   MPI_Finalize();
 
   return 0;
