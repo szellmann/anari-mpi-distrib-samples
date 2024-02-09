@@ -17,6 +17,7 @@
 #include "vtkVolume.h"
 #include "vtkVolumeProperty.h"
 #include "vtkArrayCalculator.h"
+#include "vtkLogger.h"
 
 #include "vtkAnariPass.h"
 #include "vtkAnariRendererNode.h"
@@ -26,25 +27,89 @@
 
 using namespace anari::math;
 
-struct IdleCallback : vtkCommand
+enum Command
 {
-  vtkTypeMacro(IdleCallback, vtkCommand);
+  Cmd_Start,
+  Cmd_Resize,
+  Cmd_Render,
+  Cmd_Camera,
+};
 
-  static IdleCallback *New() {
-    return new IdleCallback;
+struct RenderCommand : vtkCommand
+{
+  vtkTypeMacro(RenderCommand, vtkCommand);
+
+  static RenderCommand *New() {
+    return new RenderCommand;
   }
 
-  void Execute(vtkObject * vtkNotUsed(caller),
-               unsigned long vtkNotUsed(eventId),
-               void * vtkNotUsed(callData))
+  void Execute(vtkObject *caller,
+               unsigned long eventId,
+               void * callData)
   {
-    renderWindow->Render();
-    sleep(10); // TODO: for debugging, as barney leaks memory and otherwise
-               // forcefully exits after a copule of frames
+    switch (eventId) {
+      case vtkCommand::StartEvent: {
+        Command cmd = Cmd_Start;
+        MPI_Bcast(&cmd, sizeof(cmd), MPI_BYTE, 0, MPI_COMM_WORLD);
+        renderWindow->Render();
+        break;
+      }
+
+      case vtkCommand::WindowResizeEvent: {
+        Command cmd = Cmd_Resize;
+        int2 size = { renderWindow->GetSize()[0], renderWindow->GetSize()[1] };
+        MPI_Bcast(&cmd, sizeof(cmd), MPI_BYTE, 0, MPI_COMM_WORLD);
+        MPI_Bcast(&size, 2, MPI_INT, 0, MPI_COMM_WORLD);
+        break;
+      }
+
+      case vtkCommand::RenderEvent: {
+        Command cmd = Cmd_Render;
+        MPI_Bcast(&cmd, sizeof(cmd), MPI_BYTE, 0, MPI_COMM_WORLD);
+        renderWindow->Render();
+        break;
+      }
+    }
+    RenderCommand::Execute(caller, eventId, callData);
   }
 
   vtkRenderWindow *renderWindow;
 };
+
+struct WorkerLoop
+{
+  WorkerLoop(vtkRenderWindow *win) : renderWindow(win) {}
+
+  void Run() {
+    for (;;) {
+      Command cmd = nextCommand();
+
+      switch (cmd) {
+        case Cmd_Resize: {
+          int2 size;
+          MPI_Bcast(&size, 2, MPI_INT, 0, MPI_COMM_WORLD);
+          renderWindow->SetSize(size.x, size.y);
+          break;
+        }
+
+        case Cmd_Start:
+        case Cmd_Render:
+          renderWindow->Render();
+          break;
+      }
+    }
+  }
+ private:
+
+  Command nextCommand() {
+    Command cmd;
+    MPI_Bcast(&cmd, sizeof(cmd), MPI_BYTE, 0, MPI_COMM_WORLD);
+    return cmd;
+  }
+
+  vtkRenderWindow *renderWindow;
+};
+
 
 inline float3 randomColor(unsigned idx)
 {
@@ -71,6 +136,8 @@ int main(int argc, char *argv[]) {
   int mpiWorldSize = 0;
   MPI_Comm_rank(MPI_COMM_WORLD, &mpiRank);
   MPI_Comm_size(MPI_COMM_WORLD, &mpiWorldSize);
+
+  vtkLogger::SetStderrVerbosity(vtkLogger::Verbosity::VERBOSITY_WARNING);
 
   vtkNew<vtkOBJReader> reader;
   reader->SetFileName(argv[1+mpiRank]);
@@ -109,17 +176,7 @@ int main(int argc, char *argv[]) {
   vtkNew<vtkRenderer> ren1;
   ren1->AddActor(actor);
 
-  // Create the renderwindow, interactor and renderer
-  vtkNew<vtkRenderWindow> renderWindow;
-  renderWindow->SetMultiSamples(0);
-  renderWindow->SetSize(401, 399); // NPOT size
-  vtkNew<vtkRenderWindowInteractor> iren;
-  iren->SetRenderWindow(renderWindow);
-  vtkNew<vtkInteractorStyleTrackballCamera> style;
-  iren->SetInteractorStyle(style);
   ren1->SetBackground(0.3, 0.3, 0.4);
-  renderWindow->AddRenderer(ren1);
-
   ren1->ResetCamera();
 
   // Attach ANARI render pass
@@ -132,15 +189,42 @@ int main(int argc, char *argv[]) {
   vtkAnariRendererNode::SetUseDenoiser(1, ren1);
   vtkAnariRendererNode::SetCompositeOnGL(1, ren1);
 
-  vtkNew<IdleCallback> idleCallback;
-  idleCallback->renderWindow = renderWindow;
-  iren->CreateRepeatingTimer(1);
-  iren->AddObserver(vtkCommand::TimerEvent, idleCallback);
+  // Create the renderwindow
+  vtkNew<vtkRenderWindow> renderWindow;
+  renderWindow->SetMultiSamples(0);
+  renderWindow->AddRenderer(ren1);
+  renderWindow->SetSize(401, 399); // NPOT size
 
-  MPI_Barrier(MPI_COMM_WORLD);
+  // Interactor on rank 0, offscreen rendering on other ranks
+  if (mpiRank == 0) {
+    vtkNew<vtkRenderWindowInteractor> iren;
+    iren->SetRenderWindow(renderWindow);
+    vtkNew<vtkInteractorStyleTrackballCamera> style;
+    iren->SetInteractorStyle(style);
 
-  iren->Start();
+    vtkNew<RenderCommand> cmd_Render;
+    cmd_Render->renderWindow = renderWindow;
+    iren->AddObserver(vtkCommand::StartEvent, cmd_Render);
+    iren->AddObserver(vtkCommand::RenderEvent, cmd_Render);
 
+    // TODO: progressive rendering
+    //iren->CreateRepeatingTimer(1);
+    //iren->AddObserver(vtkCommand::TimerEvent, cmd_Render);
+
+    // Wait for worker ranks and start render loop
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    iren->Start();
+  } else {
+    renderWindow->SetOffScreenRendering(1);
+
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    WorkerLoop workerLoop(renderWindow);
+    workerLoop.Run();
+  }
+
+    std::cout << mpiRank << ": I am done......\n";
   MPI_Finalize();
 
   return 0;
