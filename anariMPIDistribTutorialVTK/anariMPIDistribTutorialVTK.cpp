@@ -2,21 +2,18 @@
 
 #include "vtkDataSetTriangleFilter.h"
 #include "vtkImageCast.h"
-#include "vtkInteractorStyleTrackballCamera.h"
 #include "vtkNamedColors.h"
 #include "vtkNew.h"
 #include "vtkOBJReader.h"
 #include "vtkPolyDataMapper.h"
 #include "vtkProperty.h"
 #include "vtkRenderWindow.h"
-#include "vtkRenderWindowInteractor.h"
 #include "vtkRenderer.h"
-#include "vtkTesting.h"
-#include "vtkThreshold.h"
-#include "vtkUnstructuredGridVolumeRayCastMapper.h"
 #include "vtkVolume.h"
 #include "vtkVolumeProperty.h"
 #include "vtkArrayCalculator.h"
+#include "vtkWindowToImageFilter.h"
+#include "vtkPNGWriter.h"
 #include "vtkLogger.h"
 
 #include "vtkAnariPass.h"
@@ -26,112 +23,6 @@
 #include "anari/anari_cpp/ext/linalg.h"
 
 using namespace anari::math;
-
-#define LOG std::cerr
-
-enum Command
-{
-  Cmd_Resize,
-  Cmd_Render,
-  Cmd_Camera,
-  Cmd_Wait,
-};
-
-struct RenderCommand : vtkCommand
-{
-  vtkTypeMacro(RenderCommand, vtkCommand);
-
-  static RenderCommand *New() {
-    return new RenderCommand;
-  }
-
-  void Execute(vtkObject *caller,
-               unsigned long eventId,
-               void * callData)
-  {
-    LOG << vtkCommand::GetStringFromEventId(eventId) << '\n';
-    switch (eventId) {
-      case vtkCommand::ConfigureEvent: {
-        Command cmd = Cmd_Resize;
-        int2 size = { renderWindow->GetSize()[0], renderWindow->GetSize()[1] };
-        MPI_Bcast(&cmd, sizeof(cmd), MPI_BYTE, 0, MPI_COMM_WORLD);
-        MPI_Bcast(&size, 2, MPI_INT, 0, MPI_COMM_WORLD);
-        break;
-      }
-
-      // at least the vtkXRenderWindowInteractor renders once on Expose w/o
-      // creating an event; we process this event here and send a single
-      // Cmd_Render to the workers. This is obviously a bit arcane.
-      case vtkCommand::ExposeEvent: {
-        Command cmd = Cmd_Render;
-        MPI_Bcast(&cmd, sizeof(cmd), MPI_BYTE, 0, MPI_COMM_WORLD);
-        break;
-      }
-
-      case vtkCommand::RenderEvent: {
-        Command cmd = Cmd_Render;
-        MPI_Bcast(&cmd, sizeof(cmd), MPI_BYTE, 0, MPI_COMM_WORLD);
-        renderWindow->Render();
-        break;
-      }
-
-      case vtkCommand::ModifiedEvent:
-      case vtkCommand::CreateCameraEvent:
-      case vtkCommand::ResetCameraEvent:
-      case vtkCommand::ActiveCameraEvent: {
-        //Command cmd = Cmd_Render;
-        //MPI_Bcast(&cmd, sizeof(cmd), MPI_BYTE, 0, MPI_COMM_WORLD);
-        //renderWindow->Render();
-        //cmd = Cmd_Wait;
-        //MPI_Bcast(&cmd, sizeof(cmd), MPI_BYTE, 0, MPI_COMM_WORLD);
-        break;
-      }
-
-      // default: {
-      //   std::cout << "EVENT ID: " << vtkCommand::GetStringFromEventId(eventId) << '\n';
-      //   break;
-      // }
-    }
-
-    //RenderCommand::Execute(caller, eventId, callData);
-  }
-
-  vtkRenderWindow *renderWindow;
-};
-
-struct WorkerLoop
-{
-  WorkerLoop(vtkRenderWindow *win) : renderWindow(win) {}
-
-  void Run() {
-    for (;;) {
-      Command cmd = nextCommand();
-
-      switch (cmd) {
-        case Cmd_Resize: {
-          int2 size;
-          MPI_Bcast(&size, 2, MPI_INT, 0, MPI_COMM_WORLD);
-          renderWindow->SetSize(size.x, size.y);
-          break;
-        }
-
-        case Cmd_Render:
-          renderWindow->Render();
-          break;
-      }
-    }
-  }
- private:
-
-  Command nextCommand() {
-    Command cmd;
-    MPI_Bcast(&cmd, sizeof(cmd), MPI_BYTE, 0, MPI_COMM_WORLD);
-    return cmd;
-  }
-
-  vtkRenderWindow *renderWindow;
-};
-
 
 inline float3 randomColor(unsigned idx)
 {
@@ -217,39 +108,31 @@ int main(int argc, char *argv[]) {
   renderWindow->AddRenderer(ren1);
   renderWindow->SetSize(401, 399); // NPOT size
 
-  // Interactor on rank 0, offscreen rendering on other ranks
-  if (mpiRank == 0) {
-    vtkNew<vtkRenderWindowInteractor> iren;
-    iren->SetRenderWindow(renderWindow);
-    vtkNew<vtkInteractorStyleTrackballCamera> style;
-    iren->SetInteractorStyle(style);
+  renderWindow->SetOffScreenRendering(1);
 
-    vtkNew<RenderCommand> cmd_Render;
-    cmd_Render->renderWindow = renderWindow;
-    iren->AddObserver(vtkCommand::ExposeEvent, cmd_Render);
-    iren->AddObserver(vtkCommand::RenderEvent, cmd_Render);
-    iren->AddObserver(vtkCommand::ConfigureEvent, cmd_Render);
-    //iren->AddObserver(vtkCommand::ActiveCameraEvent, cmd_Render);
-    //iren->AddObserver(vtkCommand::ResetCameraEvent, cmd_Render);
-
-    // TODO: progressive rendering
-    //iren->CreateRepeatingTimer(1);
-    //iren->AddObserver(vtkCommand::TimerEvent, cmd_Render);
-
-    // Wait for worker ranks and start render loop
+  for (int i=0; i<10; ++i) {
     MPI_Barrier(MPI_COMM_WORLD);
-
-    iren->Start();
-  } else {
-    renderWindow->SetOffScreenRendering(1);
-
-    MPI_Barrier(MPI_COMM_WORLD);
-
-    WorkerLoop workerLoop(renderWindow);
-    workerLoop.Run();
+    renderWindow->Render();
   }
 
-    std::cerr << mpiRank << ": I am done......\n";
+  MPI_Barrier(MPI_COMM_WORLD);
+
+  // Note: all workers have to execute the following b/c it internally causes
+  // another renderFrame on which the device will (most likely) require
+  // synchronization
+  vtkNew<vtkWindowToImageFilter> windowToImageFilter;
+  windowToImageFilter->SetInput(renderWindow);
+  windowToImageFilter->Update();
+
+  if (mpiRank == 0) {
+    vtkNew<vtkPNGWriter> writer;
+    writer->SetFileName("screenshot.png");
+    writer->SetInputConnection(windowToImageFilter->GetOutputPort());
+    writer->Write();
+  }
+
+  MPI_Barrier(MPI_COMM_WORLD);
+
   MPI_Finalize();
 
   return 0;
