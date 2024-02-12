@@ -16,21 +16,21 @@ find_package(VTK COMPONENTS
 )
 
 if (NOT VTK_FOUND)
-  message("Not building anariMPIDistribTutorialVTK: Unable to find VTK.")
+  message("Not building anariMPIDistribTutorialVTKSimple: Unable to find VTK.")
   return()
 endif()
 
-add_executable(anariMPIDistribTutorialVTK anariMPIDistribTutorialVTK.cpp)
+add_executable(anariMPIDistribTutorialVTKSimple anariMPIDistribTutorialVTKSimple.cpp)
 target_link_libraries(
-    anariMPIDistribTutorialVTK
+    anariMPIDistribTutorialVTKSimple
     anari::anari
     ${VTK_LIBRARIES}
     MPI::MPI_CXX util
 )
-target_include_directories(anariMPIDistribTutorialVTK PRIVATE ../util)
-target_include_directories(anariMPIDistribTutorialVTK SYSTEM PRIVATE ../external)
+target_include_directories(anariMPIDistribTutorialVTKSimple PRIVATE ../util)
+target_include_directories(anariMPIDistribTutorialVTKSimple SYSTEM PRIVATE ../external)
 # vtk_module_autoinit is needed
 vtk_module_autoinit(
-  TARGETS anariMPIDistribTutorialVTK
+  TARGETS anariMPIDistribTutorialVTKSimple
   MODULES ${VTK_LIBRARIES}
 )
