@@ -31,6 +31,9 @@ protected:
 
   vtkCamera* GetCamera();
 
+  int *GetSize();
+  void SetSize(int w, int h);
+
 private:
   vtkAnariPassMPI(const vtkAnariPassMPI&) = delete;
   void operator=(const vtkAnariPassMPI&) = delete;

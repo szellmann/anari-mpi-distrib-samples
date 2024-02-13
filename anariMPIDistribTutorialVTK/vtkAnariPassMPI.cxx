@@ -15,6 +15,7 @@ VTK_ABI_NAMESPACE_BEGIN
 enum Command {
   Cmd_Camera,
   Cmd_Render,
+  Cmd_Resize,
 };
 
 // ----------------------------------------------------------------------------
@@ -61,6 +62,12 @@ void vtkAnariPassMPI::Render(const vtkRenderState* s)
       MPI_Bcast(&dist, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     }
 
+    if (auto *size = GetSize()) {
+      Command cmd = Cmd_Resize;
+      MPI_Bcast(&cmd, sizeof(cmd), MPI_BYTE, 0, MPI_COMM_WORLD);
+      MPI_Bcast(size, 2, MPI_INT, 0, MPI_COMM_WORLD);
+    }
+
   // only the main rank does this!
     Command cmd = Cmd_Render;
     MPI_Bcast(&cmd, sizeof(cmd), MPI_BYTE, 0, MPI_COMM_WORLD);
@@ -102,6 +109,13 @@ void vtkAnariPassMPI::StartEventLoop()
         break;
       }
 
+      case Cmd_Resize: {
+        int newSize[2];
+        MPI_Bcast(newSize, 2, MPI_INT, 0, MPI_COMM_WORLD);
+        this->SetSize(newSize[0], newSize[1]);
+        break;
+      }
+
       case Cmd_Render: {
         this->RenderWindow->Render();
         break;
@@ -121,6 +135,22 @@ vtkCamera* vtkAnariPassMPI::GetCamera()
     cam = vtkRenderer::SafeDownCast(this->GetSceneGraph()->GetRenderable())->GetActiveCamera();
 
   return cam;
+}
+
+int *vtkAnariPassMPI::GetSize()
+{
+  int* size{nullptr};
+
+  if (this->GetSceneGraph())
+    size = this->RenderWindow->GetSize();
+
+  return size;
+}
+
+void vtkAnariPassMPI::SetSize(int w, int h)
+{
+  if (this->GetSceneGraph())
+    this->RenderWindow->SetSize(w, h);
 }
 
 VTK_ABI_NAMESPACE_END

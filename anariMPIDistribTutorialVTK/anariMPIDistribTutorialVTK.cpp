@@ -111,6 +111,10 @@ int main(int argc, char *argv[]) {
   renderWindow->AddRenderer(ren1);
   renderWindow->SetSize(401, 399); // NPOT size
 
+  // Pass the render window to the render pass,
+  // to generate and consume resize events:
+  anariPass->SetRenderWindow(renderWindow);
+
   if (mpiRank == 0) {
     vtkNew<vtkRenderWindowInteractor> iren;
     iren->SetRenderWindow(renderWindow);
@@ -122,7 +126,6 @@ int main(int argc, char *argv[]) {
     iren->Start();
   } else {
     renderWindow->SetOffScreenRendering(1);
-    anariPass->SetRenderWindow(renderWindow);
 
     MPI_Barrier(MPI_COMM_WORLD);
 
