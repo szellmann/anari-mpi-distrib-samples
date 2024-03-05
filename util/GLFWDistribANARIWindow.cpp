@@ -4,6 +4,7 @@
 #include <mpi.h>
 #include <iomanip>
 #include <iostream>
+#include <sstream>
 #include <stdexcept>
 #include "imgui_impl_glfw_gl3.h"
 
