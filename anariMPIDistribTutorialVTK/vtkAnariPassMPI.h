@@ -37,6 +37,8 @@ protected:
 private:
   vtkAnariPassMPI(const vtkAnariPassMPI&) = delete;
   void operator=(const vtkAnariPassMPI&) = delete;
+
+  int prevSize[2];
 };
 
 VTK_ABI_NAMESPACE_END

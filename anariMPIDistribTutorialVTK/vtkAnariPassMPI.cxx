@@ -23,6 +23,8 @@ vtkStandardNewMacro(vtkAnariPassMPI);
 
 vtkAnariPassMPI::vtkAnariPassMPI()
 {
+  prevSize[0] = -1;
+  prevSize[0] = -1;
 }
 
 vtkAnariPassMPI::~vtkAnariPassMPI()
@@ -62,10 +64,14 @@ void vtkAnariPassMPI::Render(const vtkRenderState* s)
       MPI_Bcast(&dist, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     }
 
-    if (auto *size = GetSize()) {
-      Command cmd = Cmd_Resize;
-      MPI_Bcast(&cmd, sizeof(cmd), MPI_BYTE, 0, MPI_COMM_WORLD);
-      MPI_Bcast(size, 2, MPI_INT, 0, MPI_COMM_WORLD);
+    if (auto *newSize = GetSize()) {
+      if (newSize[0] != prevSize[0] || newSize[1] != prevSize[1]) {
+        Command cmd = Cmd_Resize;
+        MPI_Bcast(&cmd, sizeof(cmd), MPI_BYTE, 0, MPI_COMM_WORLD);
+        MPI_Bcast(newSize, 2, MPI_INT, 0, MPI_COMM_WORLD);
+        prevSize[0] = newSize[0];
+        prevSize[1] = newSize[1];
+      }
     }
 
   // only the main rank does this!
