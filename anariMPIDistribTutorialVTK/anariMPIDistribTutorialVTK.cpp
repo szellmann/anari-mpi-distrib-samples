@@ -37,6 +37,26 @@ inline float3 randomColor(unsigned idx)
                 (b&255)/255.f);
 }
 
+struct IdleCallback : vtkCommand
+{
+  vtkTypeMacro(IdleCallback, vtkCommand);
+
+  static IdleCallback *New() {
+    return new IdleCallback;
+  }
+
+  void Execute(vtkObject * vtkNotUsed(caller),
+               unsigned long vtkNotUsed(eventId),
+               void * vtkNotUsed(callData))
+  {
+    renderWindow->Render();
+    static int cnt=0;
+    std::cout << cnt++ << '\n';
+  }
+
+  vtkRenderWindow *renderWindow;
+};
+
 int main(int argc, char *argv[]) {
   int mpiThreadCapability = 0;
   MPI_Init_thread(&argc, &argv, MPI_THREAD_MULTIPLE, &mpiThreadCapability);
@@ -120,6 +140,11 @@ int main(int argc, char *argv[]) {
     iren->SetRenderWindow(renderWindow);
     vtkNew<vtkInteractorStyleTrackballCamera> style;
     iren->SetInteractorStyle(style);
+
+    vtkNew<IdleCallback> idleCallback;
+    idleCallback->renderWindow = renderWindow;
+    iren->CreateRepeatingTimer(1);
+    iren->AddObserver(vtkCommand::TimerEvent, idleCallback);
 
     MPI_Barrier(MPI_COMM_WORLD);
 
