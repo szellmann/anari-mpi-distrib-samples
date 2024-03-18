@@ -62,6 +62,8 @@ void vtkAnariPassMPI::Render(const vtkRenderState* s)
       MPI_Bcast(view, 3, MPI_DOUBLE, 0, MPI_COMM_WORLD);
       MPI_Bcast(up, 3, MPI_DOUBLE, 0, MPI_COMM_WORLD);
       MPI_Bcast(&dist, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+
+      MPI_Barrier(MPI_COMM_WORLD);
     }
 
     if (auto *newSize = GetSize()) {
@@ -71,6 +73,8 @@ void vtkAnariPassMPI::Render(const vtkRenderState* s)
         MPI_Bcast(newSize, 2, MPI_INT, 0, MPI_COMM_WORLD);
         prevSize[0] = newSize[0];
         prevSize[1] = newSize[1];
+
+        MPI_Barrier(MPI_COMM_WORLD);
       }
     }
 
@@ -110,6 +114,8 @@ void vtkAnariPassMPI::StartEventLoop()
           cam->SetFocalPoint(view[0], view[1], view[2]);
           cam->SetViewUp(up[0], up[1], up[2]);
           cam->SetDistance(dist);
+
+          MPI_Barrier(MPI_COMM_WORLD);
         }
 
         break;
@@ -119,6 +125,7 @@ void vtkAnariPassMPI::StartEventLoop()
         int newSize[2];
         MPI_Bcast(newSize, 2, MPI_INT, 0, MPI_COMM_WORLD);
         this->SetSize(newSize[0], newSize[1]);
+        MPI_Barrier(MPI_COMM_WORLD);
         break;
       }
 

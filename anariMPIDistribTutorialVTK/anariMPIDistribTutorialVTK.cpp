@@ -141,10 +141,10 @@ int main(int argc, char *argv[]) {
     vtkNew<vtkInteractorStyleTrackballCamera> style;
     iren->SetInteractorStyle(style);
 
-    //vtkNew<IdleCallback> idleCallback;
-    //idleCallback->renderWindow = renderWindow;
-    //iren->CreateRepeatingTimer(1);
-    //iren->AddObserver(vtkCommand::TimerEvent, idleCallback);
+    vtkNew<IdleCallback> idleCallback;
+    idleCallback->renderWindow = renderWindow;
+    iren->CreateRepeatingTimer(1);
+    iren->AddObserver(vtkCommand::TimerEvent, idleCallback);
 
     MPI_Barrier(MPI_COMM_WORLD);
 
