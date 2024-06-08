@@ -99,6 +99,39 @@ namespace util {
       return triMesh;
     }
 
+    // ====================================================
+    // remove vertices not used by this geometry
+    // ====================================================
+    Mesh::SP compactMesh(Mesh::SP input) {
+      for (size_t i=0; i<input->geoms.size(); ++i) {
+        for (size_t j=i+1; j<input->geoms.size(); ++j) {
+          if (input->geoms[i]->vertex == input->geoms[j]->vertex) {
+            std::cerr << "skipping compaction, only implemented for multi-geoms "
+                << "without *shared* vertex arrays!\n";
+            return input;
+          }
+        }
+      }
+
+      for (size_t i=0; i<input->geoms.size(); ++i) {
+        auto &geom = input->geoms[i];
+        size_t numTriangles = geom->index.size();
+        std::vector<float3> ourVertices(numTriangles*3);
+        size_t index=0;
+        for (size_t j=0; j<geom->index.size(); ++j) {
+          int3 idx(index,index+1,index+2);
+          ourVertices[idx.x] = geom->vertex[geom->index[i].x];
+          ourVertices[idx.y] = geom->vertex[geom->index[i].y];
+          ourVertices[idx.z] = geom->vertex[geom->index[i].z];
+          geom->index[i] = idx;
+          index += 3;
+        }
+        geom->vertex = ourVertices;
+      }
+
+      return input;
+    }
+
     std::vector<anari::Geometry> loadANARI(anari::Device device,
                                            std::string fileName,
                                            int commRank,
