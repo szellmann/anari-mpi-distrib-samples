@@ -43,7 +43,7 @@ int main(int argc, char **argv)
   box3 bounds;
   util::PartitionedMeshLoader loader;
   auto anariGeoms = loader.loadANARI(
-      device, "/Users/stefan/anari-mpi-distrib-samples/build/teapot.tri", mpiRank, mpiWorldSize, &bounds);
+      device, argv[1], mpiRank, mpiWorldSize, &bounds);
 
   std::vector<anari::Surface> surfaces;
   for (auto geom : anariGeoms) {
