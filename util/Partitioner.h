@@ -1,6 +1,7 @@
 #pragma once
 
 // std
+#include <limits.h>
 #include <iostream>
 #include <numeric>
 #include <vector>
