@@ -1,0 +1,4 @@
+add_executable(anariMPIDistribTutorialTriangleMesh anariMPIDistribTutorialTriangleMesh.cpp)
+target_link_libraries(anariMPIDistribTutorialTriangleMesh anari::anari MPI::MPI_CXX)
+target_include_directories(anariMPIDistribTutorialTriangleMesh PRIVATE ../util)
+target_include_directories(anariMPIDistribTutorialTriangleMesh SYSTEM PRIVATE ../external)

@@ -20,11 +20,18 @@ add_library(util STATIC
   util/ZoomManip.cpp
   util/GLFWDistribANARIWindow.cpp
   util/imgui_impl_glfw_gl3.cpp
+  util/mesh.cpp
+  util/FileMapping.cpp
 )
 target_link_libraries(util PRIVATE anari::anari glfw MPI::MPI_CXX ${OPENGL_LIBRARIES})
 target_include_directories(util SYSTEM PRIVATE external/imgui)
 
+add_executable(chopSuey)
+target_sources(chopSuey PRIVATE util/chopSuey.cpp)
+target_link_libraries(chopSuey PRIVATE anari::anari util)
+
 add_subdirectory(anariMPIDistribTutorial)
 add_subdirectory(anariMPIDistribTutorialSpheres)
+add_subdirectory(anariMPIDistribTutorialTriangleMesh)
 add_subdirectory(anariMPIDistribTutorialVTKSimple)
 add_subdirectory(anariMPIDistribTutorialVTK)
