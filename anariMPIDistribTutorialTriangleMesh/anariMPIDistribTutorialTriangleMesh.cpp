@@ -1,5 +1,3 @@
-// https://github.com/ospray/ospray/blob/master/modules/mpi/tutorials/ospMPIDistribTutorial.cpp
-
 #include <errno.h>
 #include <mpi.h>
 
@@ -12,6 +10,10 @@
 #include "statusFunc.h"
 #include "PartitionedMeshLoader.h"
 #include "Camera.h"
+
+#ifdef WITH_ICET
+#include "IceTCompositor.h"
+#endif
 
 using namespace anari::math;
 
@@ -92,14 +94,34 @@ int main(int argc, char **argv)
   auto frame = anari::newObject<anari::Frame>(device);
   anari::setParameter(device, frame, "size", imgSize);
   anari::setParameter(device, frame, "channel.color", ANARI_UFIXED8_RGBA_SRGB);
+#ifdef WITH_ICET
+  anari::setParameter(device, frame, "channel.depth", ANARI_FLOAT32);
+#endif
   anari::setParameter(device, frame, "world", world);
   anari::setParameter(device, frame, "renderer", renderer);
   anari::setParameter(device, frame, "camera", camera);
   anari::commitParameters(device, frame);
 
+#ifdef WITH_ICET
+  util::IceTCompositor icetCompositor;
+  icetCompositor.resize(imgSize.x, imgSize.y);
+#endif
+
   // render one frame
   anari::render(device, frame);
 
+#ifdef WITH_ICET
+  auto fb = anari::map<uint32_t>(device, frame, "channel.color");
+  auto db = anari::map<float>(device, frame, "channel.depth");
+  auto fbIcet = icetCompositor.compositeFrame(fb.data, db.data);
+  if (mpiRank == 0) {
+    stbi_flip_vertically_on_write(1);
+    stbi_write_png(
+        "firstFrameIcet.png", imgSize.x, imgSize.y, 4, fbIcet, 4 * fb.width);
+  }
+  anari::unmap(device, frame, "channel.color");
+  anari::unmap(device, frame, "channel.depth");
+#else
   // on rank 0, access framebuffer and write its content as PNG file
   if (mpiRank == 0) {
     auto fb = anari::map<uint32_t>(device, frame, "channel.color");
@@ -108,18 +130,32 @@ int main(int argc, char **argv)
         "firstFrameCpp.png", imgSize.x, imgSize.y, 4, fb.data, 4 * fb.width);
     anari::unmap(device, frame, "channel.color");
   }
+#endif
 
   // render 10 more frames, which are accumulated to result in a better
   // converged image
   for (int frames = 0; frames < 10; frames++)
     anari::render(device, frame);
 
+#ifdef WITH_ICET
+  fb = anari::map<uint32_t>(device, frame, "channel.color");
+  db = anari::map<float>(device, frame, "channel.depth");
+  fbIcet = icetCompositor.compositeFrame(fb.data, db.data);
+  if (mpiRank == 0) {
+    stbi_write_png(
+        "accumulatedFrameIcet.png", imgSize.x, imgSize.y, 4, fbIcet, 4 * fb.width);
+  }
+  anari::unmap(device, frame, "channel.color");
+  anari::unmap(device, frame, "channel.depth");
+  icetCompositor.destroy();
+#else
   if (mpiRank == 0) {
     auto fb = anari::map<uint32_t>(device, frame, "channel.color");
     stbi_write_png(
         "accumulatedFrameCpp.png", imgSize.x, imgSize.y, 4, fb.data, 4 * fb.width);
     anari::unmap(device, frame, "channel.color");
   }
+#endif
 
   MPI_Finalize();
 
