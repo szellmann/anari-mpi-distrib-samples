@@ -25,7 +25,6 @@ using namespace anari::math;
 // Generate the rank's local spheres within its assigned grid cell, and
 // return the bounds of this grid cell
 anari::Surface makeLocalSpheres(
-//anari::Instance makeLocalSpheres(
     anari::Device device, const int mpiRank, const int mpiWorldSize, box3 &bounds);
 
 int main(int argc, char **argv)
@@ -47,8 +46,7 @@ int main(int argc, char **argv)
 
   std::cout << "ANARI rank " << mpiRank << "/" << mpiWorldSize << "\n";
 
-  // load "barney", an MPI distributed anari device
-  auto library = anari::loadLibrary("barney", statusFunc);
+  auto library = anari::loadLibrary("environment", statusFunc);
 
   auto device = anari::newDevice(library, "default");
   anari::commitParameters(device, device);
@@ -57,24 +55,20 @@ int main(int argc, char **argv)
   // all ranks specify the same rendering parameters, with the exception of
   // the data to be rendered, which is distributed among the ranks
   box3 regionBounds;
-  //anari::Instance spheres =
   anari::Surface spheres =
       makeLocalSpheres(device, mpiRank, mpiWorldSize, regionBounds);
 
   auto world = anari::newObject<anari::World>(device);
-  //anari::setParameterArray1D(device, world, "instance", &spheres, 1); // TODO: doesn't work?!
   anari::setParameterArray1D(device, world, "surface", &spheres, 1);
 
   // create ANARI renderer
   auto renderer = anari::newObject<anari::Renderer>(device, "default");
 
   // create and setup a directional light
-  std::array<anari::Light, 1> lights = {
-      anari::newObject<anari::Light>(device, "directional")};
-
-  anari::setParameter(device, lights[0], "direction", float3(-1.f, -1.f, 0.5f));
-  anari::commitParameters(device, lights[0]);
-  anari::setParameterArray1D(device, world, "light", &lights, 1);
+  auto light = anari::newObject<anari::Light>(device, "directional");
+  anari::setParameter(device, light, "direction", float3(-1.f, -1.f, 0.5f));
+  anari::commitParameters(device, light);
+  anari::setParameterArray1D(device, world, "light", &light, 1);
 
   anari::commitParameters(device, world);
 
@@ -142,7 +136,6 @@ int3 computeGrid(int num)
   return grid;
 }
 
-//anari::Instance makeLocalSpheres( // TODO: doesn't work with barney?!
 anari::Surface makeLocalSpheres(
     anari::Device device, const int mpiRank, const int mpiWorldSize, box3 &bounds)
 {
@@ -184,11 +177,8 @@ anari::Surface makeLocalSpheres(
   }
 
   auto sphereGeom = anari::newObject<anari::Geometry>(device, "sphere");
-  anari::Array1D data;
-  data = anari::newArray1D(device, sphereRadii.data(), sphereRadii.size());
-  anari::setAndReleaseParameter(device, sphereGeom, "vertex.radius", data);
-  data = anari::newArray1D(device, spheres.data(), spheres.size());
-  anari::setAndReleaseParameter(device, sphereGeom, "vertex.position", data);
+  anari::setParameterArray1D(device, sphereGeom, "vertex.radius", sphereRadii.data(), sphereRadii.size());
+  anari::setParameterArray1D(device, sphereGeom, "vertex.position", spheres.data(), spheres.size());
   anari::commitParameters(device, sphereGeom);
 
   float3 color(0.f, 0.f, (mpiRank + 1.f) / mpiWorldSize);
@@ -197,18 +187,9 @@ anari::Surface makeLocalSpheres(
   anari::commitParameters(device, material);
 
   auto surface = anari::newObject<anari::Surface>(device);
-  anari::setParameter(device, surface, "geometry", sphereGeom);
-  anari::setParameter(device, surface, "material", material);
+  anari::setAndReleaseParameter(device, surface, "geometry", sphereGeom);
+  anari::setAndReleaseParameter(device, surface, "material", material);
   anari::commitParameters(device, surface);
 
-  auto group = anari::newObject<anari::Group>(device);
-  anari::setParameterArray1D(device, group, "surface", &surface, 1);
-  anari::commitParameters(device, group);
-
-  auto instance = anari::newObject<anari::Instance>(device, "transform");
-  anari::setParameterArray1D(device, instance, "group", &group, 1);
-  anari::commitParameters(device, instance);
-
-//return instance;
   return surface;
 }
